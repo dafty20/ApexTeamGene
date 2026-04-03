@@ -7,7 +7,7 @@
 <style>
 @font-face{
   font-family:"night";
-  src:url("./59ae5f46-fb5b-4ae0-8b1c-32918d3b35dd.otf") format("opentype");
+  src:url("./night.otf") format("opentype"); /* ← ファイル名変更前提 */
 }
 
 body{background:#0f172a;color:#fff;text-align:center;}
@@ -44,15 +44,40 @@ canvas{width:960px;margin-top:20px;border-radius:16px;}
 
 <script>
 
-// フォント読み込み
+// フォント（失敗しても止まらない）
 async function loadFont(){
-  const font = new FontFace("night", "url(./59ae5f46-fb5b-4ae0-8b1c-32918d3b35dd.otf)");
-  await font.load();
-  document.fonts.add(font);
-  await document.fonts.ready;
+  try{
+    const font = new FontFace("night", "url(./night.otf)");
+    await font.load();
+    document.fonts.add(font);
+    await document.fonts.ready;
+  }catch(e){
+    console.log("フォント読み込み失敗");
+  }
 }
 
-const ranks=["predetor","master","diamond","platinum","gold","silver","bronze","rookie"];
+// 入力チェック
+function checkFiles(){
+  if(!leaderIcon.files[0] || !member1Icon.files[0] || !member2Icon.files[0]){
+    alert("画像を全部選択して");
+    return false;
+  }
+  return true;
+}
+
+// ランク定義（手動で安全化）
+const rankImgs={
+  predetor:"1.predetor.png",
+  master:"2.master.png",
+  diamond:"3.diamond.png",
+  platinum:"4.platinum.png",
+  gold:"5.gold.png",
+  silver:"6.silver.png",
+  bronze:"7.bronze.png",
+  rookie:"8.rookie.png"
+};
+
+const ranks=Object.keys(rankImgs);
 
 ["leaderRank","member1Rank","member2Rank"].forEach(id=>{
   const sel=document.getElementById(id);
@@ -63,9 +88,6 @@ const ranks=["predetor","master","diamond","platinum","gold","silver","bronze","
     sel.appendChild(o);
   });
 });
-
-const rankImgs={};
-ranks.forEach((r,i)=>rankImgs[r]=`${i+1}.${r}.png`);
 
 function load(file){
   return new Promise(res=>{
@@ -82,123 +104,86 @@ function drawBG(ctx){
   g.addColorStop(1,"#d1d5db");
   ctx.fillStyle=g;
   ctx.fillRect(0,0,1920,1080);
-
-  for(let i=0;i<3000;i++){
-    ctx.fillStyle="rgba(0,0,0,0.03)";
-    ctx.fillRect(Math.random()*1920,Math.random()*1080,2,2);
-  }
 }
 
 // チーム名
 function drawTeam(ctx,name){
-  const grad=ctx.createLinearGradient(700,0,1200,0);
-  grad.addColorStop(0,"#7c3aed");
-  grad.addColorStop(1,"#ec4899");
-
-  ctx.font="110px night";
+  ctx.font="100px night, sans-serif";
   ctx.textAlign="center";
-
-  ctx.shadowColor="rgba(124,58,237,0.5)";
-  ctx.shadowBlur=30;
-
-  ctx.fillStyle=grad;
-  ctx.fillText(name,960,170);
-
-  ctx.shadowBlur=0;
+  ctx.fillStyle="#111";
+  ctx.fillText(name,960,160);
 }
 
 // アイコン
 function drawCard(ctx,img,x,y,size){
-  ctx.lineWidth=6;
-  ctx.strokeStyle="#9ca3af";
-  ctx.beginPath();
-  ctx.roundRect(x-5,y-5,size+10,size+10,30);
-  ctx.stroke();
-
   ctx.fillStyle="#fff";
-  ctx.beginPath();
-  ctx.roundRect(x,y,size,size,26);
-  ctx.fill();
-
-  ctx.shadowColor="rgba(0,0,0,0.2)";
-  ctx.shadowBlur=25;
+  ctx.fillRect(x,y,size,size);
 
   const m=Math.min(img.width,img.height);
   const sx=(img.width-m)/2;
   const sy=(img.height-m)/2;
 
-  ctx.save();
-  ctx.beginPath();
-  ctx.roundRect(x,y,size,size,26);
-  ctx.clip();
   ctx.drawImage(img,sx,sy,m,m,x,y,size,size);
-  ctx.restore();
-
-  ctx.shadowBlur=0;
 }
 
-// ランク
+// ランク（エラー耐性）
 async function drawRank(ctx,rank,x,y,size){
   const img=new Image();
   img.src=rankImgs[rank];
 
   await new Promise(r=>{
     img.onload=()=>{
-      ctx.shadowColor="rgba(0,0,0,0.4)";
-      ctx.shadowBlur=15;
-      ctx.drawImage(img,x+10,y+size-160,160,160);
-      ctx.shadowBlur=0;
+      ctx.drawImage(img,x+10,y+size-120,120,120);
       r();
     };
-    img.onerror=r;
+    img.onerror=()=>{
+      console.log("ランク画像なし:",rank);
+      r();
+    };
   });
 }
 
 // 名前
 function drawName(ctx,name,x,y,isLeader=false){
-  ctx.font = isLeader ? "64px night" : "52px night";
+  ctx.font = isLeader ? "64px night, sans-serif" : "52px night, sans-serif";
   ctx.textAlign="center";
   ctx.fillStyle="#111";
   ctx.fillText(name,x,y);
 }
 
-// ★強化ラベル
+// ラベル（強化版）
 function drawLabel(ctx,text,x,y,isLeader=false){
-  const labelWidth = 220;
-  const labelHeight = 70;
+  const w=220,h=70;
 
-  // 背景
   ctx.fillStyle = isLeader ? "rgba(124,58,237,0.85)" : "rgba(0,0,0,0.65)";
-  ctx.beginPath();
-  ctx.roundRect(x+20,y+20,labelWidth,labelHeight,18);
-  ctx.fill();
+  ctx.fillRect(x+20,y+20,w,h);
 
-  // 枠
-  ctx.lineWidth=3;
   ctx.strokeStyle="#fff";
-  ctx.stroke();
+  ctx.lineWidth=3;
+  ctx.strokeRect(x+20,y+20,w,h);
 
-  // 文字
-  ctx.font="40px night";
+  ctx.font="40px night, sans-serif";
   ctx.textAlign="center";
   ctx.textBaseline="middle";
 
-  const textX = x+20+labelWidth/2;
-  const textY = y+20+labelHeight/2;
+  const tx=x+20+w/2;
+  const ty=y+20+h/2;
 
-  // 縁取り
   ctx.lineWidth=6;
   ctx.strokeStyle="#000";
-  ctx.strokeText(text,textX,textY);
+  ctx.strokeText(text,tx,ty);
 
   ctx.fillStyle="#fff";
-  ctx.fillText(text,textX,textY);
+  ctx.fillText(text,tx,ty);
 }
 
 async function generate(){
+  if(!checkFiles()) return;
+
   await loadFont();
 
   const ctx=document.getElementById("canvas").getContext("2d");
+  ctx.clearRect(0,0,1920,1080);
 
   drawBG(ctx);
   drawTeam(ctx,teamName.value);
@@ -212,12 +197,7 @@ async function generate(){
   const startX=(1920-(size*3+gap*2))/2;
   const y=250;
 
-  const pos=[
-    startX,
-    startX+size+gap,
-    startX+(size+gap)*2
-  ];
-
+  const pos=[startX,startX+size+gap,startX+(size+gap)*2];
   const imgs=[leader,m1,m2];
   const names=[leaderName.value,member1Name.value,member2Name.value];
   const ranksVal=[leaderRank.value,member1Rank.value,member2Rank.value];
